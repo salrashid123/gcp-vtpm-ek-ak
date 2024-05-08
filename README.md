@@ -40,6 +40,14 @@ What this tutorial will do is
 
   This allows you to securely connect to a Confidential VM after attestation
 
+- [Kubernetes Trusted Platform Module (TPM) using Device Plugin and Gatekeeper](https://github.com/salrashid123/tpm_kubernetes)
+
+  Access the vTPM from GKE using a device plugin
+
+- [Kubernetes Trusted Platform Module (TPM) DaemonSet](https://github.com/salrashid123/tpm_daemonset)
+
+  Access the vTPM from GKE indirectly from a daemonset
+  
 - [Go-TPM-Wrapping - Go library for encrypting values through Trusted Platform Module (TPM)](https://github.com/salrashid123/go-tpm-wrapping)
 
   Envelope encryption using go-tpm-wrapping library adapted to use vTPM's EK key
