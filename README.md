@@ -1,4 +1,4 @@
-## Sign, Verify and decode using Google Cloud vTPM Endorsement and Attestation Key and Certificate
+## Sign, Verify and decode using Google Cloud vTPM Attestation Key and Certificate
 
 
 This repo covers how to use a GCE Confidential VM's [TPM module](https://cloud.google.com/blog/products/identity-security/virtual-trusted-platform-module-for-shielded-vms-security-in-plaintext) to sign some data that can be verified later by a Google signed public certificate in such a way that act of signing must have been done only on that VM.
@@ -9,12 +9,12 @@ The `x509 cert` issued to each vm is unique but is signed by google.  The certif
 
 Meaning, you can assert _this `vm_id=1234`, running in `region=us-central1-a` in `project=abcd` must have signed this data_
 
-So how does this work:   Each VM's `Endorsement Key` (encryption) and `Attestation Key` (signing) is encoded into an `x509` certificate which is itself issued by Google's [TPM Signing CA](http://privateca-content-62d71773-0000-21da-852e-f4f5e80d7778.storage.googleapis.com/032bf9d39db4fa06aade/ca.crt).  
+So how does this work:   Each VM's `Endorsement Key` (encryption) and `Attestation Key` (signing) is encoded into `x509` certificates issued by Google's [TPM Signing CA](http://privateca-content-62d71773-0000-21da-852e-f4f5e80d7778.storage.googleapis.com/032bf9d39db4fa06aade/ca.crt).  
 
-These x509 certificates are embedded into only that VMs in non-volatile memory and also surfaces the cert via API (see   [Retrieving endorsement keys](https://cloud.google.com/compute/shielded-vm/docs/retrieving-endorsement-key).
+These x509 certificates are embedded that VMs in non-volatile memory and is also surfaced via GCE compute API API (see   [Retrieving endorsement keys](https://cloud.google.com/compute/shielded-vm/docs/retrieving-endorsement-key).
 
 
-You can use the vTPm to encrypt data with the EK and sign data using the AK using just standard TPM function or helper library functions like [go-tpm-tools/client.GceAttestationKeyRSA](https://pkg.go.dev/github.com/google/go-tpm-tools/client#GceAttestationKeyRSA).  Once the AK signed the data, you can give that and the x509 to someone to verify later...and they can trust that it happened on a specific VM by verifying the signature using the certificate...and verifying the encoded vmID's on that same certificate.
+You can use the vTPm to encrypt data with the EK and separately sign data using the AK using just standard TPM function or helper library functions.  Once the AK signed the data, you can give that and the x509 to someone to verify later...and they can trust that it happened on a specific VM by verifying the signature using the certificate and verifying the CA chain...*critically*, the certificate includes encoded data about the specific vmID instance id and project.  You can use this to correlate the signature to a specific instnace's tpm
 
 What this tutorial will do is 
 
