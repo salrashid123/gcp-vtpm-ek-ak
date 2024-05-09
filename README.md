@@ -546,7 +546,7 @@ Notice we used the certificate where we have the encoded runtime instance data v
 
 You can also sign a JWT using the AK Key and `github.com/salrashid123/golang-jwt-tpm`
 
-[golang-jwt for Trusted Platform Module (TPM)](https://github.com/salrashid123/golang-jwt-tpm)
+[golang-jwt for Trusted Platform Module (TPM) - Sign/Verify with GCP builtin AKCert ](https://github.com/salrashid123/golang-jwt-tpm?tab=readme-ov-file#signverify-with-gcp-builtin-akcert)
 
 ```bash
 cd example/jwt
