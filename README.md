@@ -26,65 +26,6 @@ What this tutorial will do is
 
 ---
 
-#### References
-
-- [Sealing RSA and Symmetric keys with GCP vTPMs](https://github.com/salrashid123/gcp_tpm_sealed_keys)
-
-  This allows you to use the EK to securely transfer some data such that it can only get decrypted by that target VM
-
-- [Read EK from NV](https://github.com/salrashid123/tpm2/tree/master/gcp_ek_ak)
-
-  The AK/EK templates are sealed to non-volatile area of GCP vms.  If you wanted to acquire them directly on the VM, use this
-
-- [TPM based TLS using Attested Keys](https://github.com/salrashid123/tls_ak)
-
-  This allows you to securely connect to a Confidential VM after attestation
-
-- [Kubernetes Trusted Platform Module (TPM) using Device Plugin and Gatekeeper](https://github.com/salrashid123/tpm_kubernetes)
-
-  Access the vTPM from GKE using a device plugin
-
-- [Kubernetes Trusted Platform Module (TPM) DaemonSet](https://github.com/salrashid123/tpm_daemonset)
-
-  Access the vTPM from GKE indirectly from a daemonset
-  
-- [Go-TPM-Wrapping - Go library for encrypting values through Trusted Platform Module (TPM)](https://github.com/salrashid123/go-tpm-wrapping)
-
-  Envelope encryption using go-tpm-wrapping library adapted to use vTPM's EK key
-
-- [TPM and PKCS-11 backed crypto/rand Reader](https://github.com/salrashid123/tpmrand)
-
-  Just get real random stuff in go
-
-- [Sign with AK saved to NV (gce only)](https://github.com/salrashid123/tpm2/tree/master/ak_sign_nv)
-
-  Sign data with GCE's AK saved to NVRAM
-
-- [Trusted Platform Module (TPM) recipes with tpm2_tools and go-tpm](https://github.com/salrashid123/tpm2)
-
-  Generic samples using go-tpm and tpm2_tools
-
-- [golang-jwt for Trusted Platform Module (TPM)](https://github.com/salrashid123/golang-jwt-tpm)
-
-  If you wanted to create and verify a JWT signed by a TPM.  see [Sign/Verify with GCP builtin AKCert](https://github.com/salrashid123/golang-jwt-tpm/blob/main/README.md#signverify-with-gcp-builtin-akcert)
-
-- [TPM Credential Source for Google Cloud SDK](https://github.com/salrashid123/gcp-adc-tpm)
-
-  Access GCP resources where the private key is saved inside a vTPM
-
-- [TPM Remote Attestation protocol using go-tpm and gRPC](https://github.com/salrashid123/go_tpm_remote_attestation)
-
-  gRPC implementation of Remote Attestation from scratch.  THis is the long form way to acquire an AK.  In GCP, the AK is already provided to you.
-- [OCICrypt provider for Trusted Platform Modules (TPM)](https://github.com/salrashid123/ocicrypt-tpm-keyprovider)
-
-  If you wanted to encrypt an OCI container image such that it can only get decrypted on a target VM (the vm need not be on gcp)
-
-- [mTLS with TPM bound private key](https://github.com/salrashid123/go_tpm_https_embed)
-
-- [crypto.Signer, implementations for Google Cloud KMS and Trusted Platform Modules](https://github.com/salrashid123/signer)
-
----
-
 ### Create VM and acquire AK/EK certificate
 
 First create a VM
@@ -630,5 +571,64 @@ $ openssl rsa -pubin -in akpub.pem -outform DER | openssl sha256
 
 # base64 of hex SHA256(stdin)= 269d27a3cb380e9d24c39f0bc9f222ce8493fdc0648b5fca36a0710cac42e6c4 --> Jp0no8s4Dp0kw58LyfIizoST/cBki1/KNqBxDKxC5sQ=
 ```
+
+---
+
+#### References
+
+- [Sealing RSA and Symmetric keys with GCP vTPMs](https://github.com/salrashid123/gcp_tpm_sealed_keys)
+
+  This allows you to use the EK to securely transfer some data such that it can only get decrypted by that target VM
+
+- [Read EK from NV](https://github.com/salrashid123/tpm2/tree/master/gcp_ek_ak)
+
+  The AK/EK templates are sealed to non-volatile area of GCP vms.  If you wanted to acquire them directly on the VM, use this
+
+- [TPM based TLS using Attested Keys](https://github.com/salrashid123/tls_ak)
+
+  This allows you to securely connect to a Confidential VM after attestation
+
+- [Kubernetes Trusted Platform Module (TPM) using Device Plugin and Gatekeeper](https://github.com/salrashid123/tpm_kubernetes)
+
+  Access the vTPM from GKE using a device plugin
+
+- [Kubernetes Trusted Platform Module (TPM) DaemonSet](https://github.com/salrashid123/tpm_daemonset)
+
+  Access the vTPM from GKE indirectly from a daemonset
+  
+- [Go-TPM-Wrapping - Go library for encrypting values through Trusted Platform Module (TPM)](https://github.com/salrashid123/go-tpm-wrapping)
+
+  Envelope encryption using go-tpm-wrapping library adapted to use vTPM's EK key
+
+- [TPM and PKCS-11 backed crypto/rand Reader](https://github.com/salrashid123/tpmrand)
+
+  Just get real random stuff in go
+
+- [Sign with AK saved to NV (gce only)](https://github.com/salrashid123/tpm2/tree/master/ak_sign_nv)
+
+  Sign data with GCE's AK saved to NVRAM
+
+- [Trusted Platform Module (TPM) recipes with tpm2_tools and go-tpm](https://github.com/salrashid123/tpm2)
+
+  Generic samples using go-tpm and tpm2_tools
+
+- [golang-jwt for Trusted Platform Module (TPM)](https://github.com/salrashid123/golang-jwt-tpm)
+
+  If you wanted to create and verify a JWT signed by a TPM.  see [Sign/Verify with GCP builtin AKCert](https://github.com/salrashid123/golang-jwt-tpm/blob/main/README.md#signverify-with-gcp-builtin-akcert)
+
+- [TPM Credential Source for Google Cloud SDK](https://github.com/salrashid123/gcp-adc-tpm)
+
+  Access GCP resources where the private key is saved inside a vTPM
+
+- [TPM Remote Attestation protocol using go-tpm and gRPC](https://github.com/salrashid123/go_tpm_remote_attestation)
+
+  gRPC implementation of Remote Attestation from scratch.  THis is the long form way to acquire an AK.  In GCP, the AK is already provided to you.
+- [OCICrypt provider for Trusted Platform Modules (TPM)](https://github.com/salrashid123/ocicrypt-tpm-keyprovider)
+
+  If you wanted to encrypt an OCI container image such that it can only get decrypted on a target VM (the vm need not be on gcp)
+
+- [mTLS with TPM bound private key](https://github.com/salrashid123/go_tpm_https_embed)
+
+- [crypto.Signer, implementations for Google Cloud KMS and Trusted Platform Modules](https://github.com/salrashid123/signer)
 
 ---
