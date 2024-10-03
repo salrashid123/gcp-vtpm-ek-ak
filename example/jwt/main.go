@@ -2,17 +2,21 @@ package main
 
 import (
 	"context"
-	"crypto/rsa"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/pem"
 	"flag"
 	"fmt"
+	"io"
 	"log"
+	"net"
 	"os"
+	"slices"
 	"time"
 
-	"github.com/google/go-tpm-tools/client"
-	"github.com/google/go-tpm/legacy/tpm2"
+	"github.com/google/go-tpm-tools/simulator"
+	"github.com/google/go-tpm/tpm2"
+	"github.com/google/go-tpm/tpm2/transport"
 	"github.com/google/go-tpm/tpmutil"
 
 	jwt "github.com/golang-jwt/jwt/v5"
@@ -26,87 +30,193 @@ import (
 // // EK (encryption)
 // EKCertNVIndexRSA uint32 = 0x01c00002
 
+// github.com/google/go-tpm-tools@v0.4.4/client/handles.go
+// [go-tpm-tools/client](https://pkg.go.dev/github.com/google/go-tpm-tools/client#pkg-constants)
+
+// GCE Attestation Key NV Indices
 const (
-	tpmDevice             = "/dev/tpm0"
-	signCertNVIndex       = 0x01c10000
-	signKeyNVIndex        = 0x01c10001
-	encryptionCertNVIndex = 0x01c00002
-	emptyPassword         = ""
+	// RSA 2048 AK.
+	GceAKCertNVIndexRSA     uint32 = 0x01c10000
+	GceAKTemplateNVIndexRSA uint32 = 0x01c10001
+	// ECC P256 AK.
+	GceAKCertNVIndexECC     uint32 = 0x01c10002
+	GceAKTemplateNVIndexECC uint32 = 0x01c10003
+
+	// RSA 2048 EK Cert.
+	EKCertNVIndexRSA uint32 = 0x01c00002
+	// ECC P256 EK Cert.
+	EKCertNVIndexECC uint32 = 0x01c0000a
 )
 
 var (
-	handleNames = map[string][]tpm2.HandleType{
-		"all":       []tpm2.HandleType{tpm2.HandleTypeLoadedSession, tpm2.HandleTypeSavedSession, tpm2.HandleTypeTransient},
-		"loaded":    []tpm2.HandleType{tpm2.HandleTypeLoadedSession},
-		"saved":     []tpm2.HandleType{tpm2.HandleTypeSavedSession},
-		"transient": []tpm2.HandleType{tpm2.HandleTypeTransient},
-	}
-
-	tpmPath = flag.String("tpm-path", "/dev/tpm0", "Path to the TPM device (character device or a Unix socket).")
+	tpmPath = flag.String("tpm-path", "/dev/tpmrm0", "Path to the TPM device (character device or a Unix socket).")
 )
+
+var TPMDEVICES = []string{"/dev/tpm0", "/dev/tpmrm0"}
+
+func OpenTPM(path string) (io.ReadWriteCloser, error) {
+	if slices.Contains(TPMDEVICES, path) {
+		return tpmutil.OpenTPM(path)
+	} else if path == "simulator" {
+		return simulator.GetWithFixedSeedInsecure(1073741825)
+	} else {
+		return net.Dial("tcp", path)
+	}
+}
 
 func main() {
 
 	flag.Parse()
 	log.Println("======= Init  ========")
 
-	rwc, err := tpm2.OpenTPM(*tpmPath)
+	rwc, err := OpenTPM(*tpmPath)
 	if err != nil {
-		log.Fatalf("can't open TPM %q: %v", tpmPath, err)
+		log.Fatalf("can't open TPM %q: %v", *tpmPath, err)
+	}
+	defer func() {
+		rwc.Close()
+	}()
+
+	rwr := transport.FromReadWriter(rwc)
+
+	log.Printf("======= createPrimary RSAEKTemplate ========")
+
+	// read from template
+	// cCreateGCEEK, err := tpm2.CreatePrimary{
+	// 	PrimaryHandle: tpm2.TPMRHEndorsement,
+	// 	InPublic:      tpm2.New2B(tpm2.RSAEKTemplate),
+	// }.Execute(rwr)
+	// if err != nil {
+	// 	log.Fatalf("can't create object TPM %q: %v", *tpmPath, err)
+	// }
+
+	akTemplatebytes, err := nvReadEX(rwr, tpmutil.Handle(GceAKTemplateNVIndexRSA))
+	if err != nil {
+		log.Fatalf("ERROR:  could not read nv index for GceAKTemplateNVIndexRSA: %v", err)
 	}
 
-	totalHandles := 0
-	for _, handleType := range handleNames["all"] {
-		handles, err := client.Handles(rwc, handleType)
+	tb := tpm2.BytesAs2B[tpm2.TPMTPublic, *tpm2.TPMTPublic](akTemplatebytes)
+
+	cCreateGCEAK, err := tpm2.CreatePrimary{
+		PrimaryHandle: tpm2.TPMRHEndorsement,
+		InPublic:      tb,
+	}.Execute(rwr)
+	if err != nil {
+		log.Fatalf("can't create object TPM %q: %v", *tpmPath, err)
+	}
+
+	defer func() {
+		flushContextCmd := tpm2.FlushContext{
+			FlushHandle: cCreateGCEAK.ObjectHandle,
+		}
+		_, err := flushContextCmd.Execute(rwr)
 		if err != nil {
-			log.Fatalf("getting handles: %v", err)
+			log.Fatalf("can't close TPM %q: %v", *tpmPath, err)
 		}
-		for _, handle := range handles {
-			if err = tpm2.FlushContext(rwc, handle); err != nil {
-				log.Fatalf("flushing handle 0x%x: %v", handle, err)
-			}
-			log.Printf("Handle 0x%x flushed\n", handle)
-			totalHandles++
-		}
+	}()
+
+	log.Printf("Name %s\n", hex.EncodeToString(cCreateGCEAK.Name.Buffer))
+
+	pub, err := cCreateGCEAK.OutPublic.Contents()
+	if err != nil {
+		log.Fatalf("Failed to get rsa public: %v", err)
+	}
+	rsaDetail, err := pub.Parameters.RSADetail()
+	if err != nil {
+		log.Fatalf("Failed to get rsa details: %v", err)
+	}
+	rsaUnique, err := pub.Unique.RSA()
+	if err != nil {
+		log.Fatalf("Failed to get rsa unique: %v", err)
 	}
 
-	log.Printf("%d handles flushed\n", totalHandles)
+	rsaGCEAKPub, err := tpm2.RSAPub(rsaDetail, rsaUnique)
+	if err != nil {
+		log.Fatalf("can't read rsapub unique %q: %v", *tpmPath, err)
+	}
 
-	// *****************
+	b2, err := x509.MarshalPKIXPublicKey(rsaGCEAKPub)
+	if err != nil {
+		log.Fatalf("Unable to convert rsaGCEAKPub: %v", err)
+	}
+
+	akGCEPubPEM := pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "PUBLIC KEY",
+			Bytes: b2,
+		},
+	)
+	log.Printf("GCE AKPublic: \n%v", string(akGCEPubPEM))
+
+	// GET certificate
 
 	log.Printf("     Load SigningKey and Cert ")
 	// read direct from nv template
-	kk, err := client.EndorsementKeyFromNvIndex(rwc, client.GceAKTemplateNVIndexRSA)
-	// just just do this
-	//kk, err := client.AttestationKeyRSA(rwc)
-	if err != nil {
-		log.Printf("ERROR:  could not get EndorsementKeyFromNvIndex: %v", err)
-		return
-	}
-	defer kk.Close()
 
-	pubKey := kk.PublicKey().(*rsa.PublicKey)
-	akBytes, err := x509.MarshalPKIXPublicKey(pubKey)
+	readPubRsp, err := tpm2.NVReadPublic{
+		NVIndex: tpm2.TPMHandle(GceAKCertNVIndexRSA),
+	}.Execute(rwr)
 	if err != nil {
-		log.Printf("ERROR:  could not get MarshalPKIXPublicKey: %v", err)
-		return
+		log.Fatalf("Calling TPM2_NV_ReadPublic: %v", err)
 	}
-	akPubPEM := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "PUBLIC KEY",
-			Bytes: akBytes,
-		},
-	)
-	log.Printf("     Signing PEM \n%s", string(akPubPEM))
+	log.Printf("Name: %x", readPubRsp.NVName.Buffer)
+	c, err := readPubRsp.NVPublic.Contents()
+	if err != nil {
+		log.Fatalf("Calling TPM2_NV_ReadPublic Contents: %v", err)
+	}
 
-	certASN1, err := tpm2.NVReadEx(rwc, tpmutil.Handle(client.GceAKCertNVIndexRSA), tpm2.HandleOwner, "", 0)
-	if err != nil {
-		log.Printf("ERROR:  error reading AK Certificate from NV: %v", err)
-		return
+	// get nv max buffer
+
+	// tpm2_getcap properties-fixed | grep -A 1 TPM2_PT_NV_BUFFER_MAX
+	// 	TPM2_PT_NV_BUFFER_MAX:
+	// 	raw: 0x800   <<<<< 2048
+
+	getCmd := tpm2.GetCapability{
+		Capability:    tpm2.TPMCapTPMProperties,
+		Property:      uint32(tpm2.TPMPTNVBufferMax),
+		PropertyCount: 1,
 	}
-	signCert, err := x509.ParseCertificate(certASN1)
+	getRsp, err := getCmd.Execute(rwr)
 	if err != nil {
-		log.Printf("ERROR:  error sparsing AK singing cert : %v", err)
+		log.Fatalf("errpr Calling GetCapability: %v", err)
+	}
+
+	tp, err := getRsp.CapabilityData.Data.TPMProperties()
+	if err != nil {
+		log.Fatalf("error Calling TPMProperties: %v", err)
+	}
+
+	blockSize := int(tp.TPMProperty[0].Value)
+
+	outBuff := make([]byte, 0, int(c.DataSize))
+	for len(outBuff) < int(c.DataSize) {
+		readSize := blockSize
+		if readSize > (int(c.DataSize) - len(outBuff)) {
+			readSize = int(c.DataSize) - len(outBuff)
+		}
+
+		readRsp, err := tpm2.NVRead{
+			AuthHandle: tpm2.AuthHandle{
+				Handle: tpm2.TPMRHOwner,
+				Name:   tpm2.HandleName(tpm2.TPMRHOwner),
+				Auth:   tpm2.HMAC(tpm2.TPMAlgSHA256, 16, tpm2.Auth([]byte{})),
+			},
+			NVIndex: tpm2.NamedHandle{
+				Handle: tpm2.TPMHandle(GceAKCertNVIndexRSA),
+				Name:   readPubRsp.NVName,
+			},
+			Size:   uint16(readSize),
+			Offset: uint16(len(outBuff)),
+		}.Execute(rwr)
+		if err != nil {
+			log.Fatalf("Calling NV Read: %v", err)
+		}
+		data := readRsp.Data.Buffer
+		outBuff = append(outBuff, data...)
+	}
+	signCert, err := x509.ParseCertificate(outBuff)
+	if err != nil {
+		log.Printf("ERROR:  error parsing AK singing cert : %v", err)
 		return
 	}
 
@@ -117,8 +227,6 @@ func main() {
 		},
 	)
 	log.Printf("     Signing Certificate \n%s", string(akCertPEM))
-
-	//r, err := kk.GetSigner()
 
 	// ******************
 
@@ -133,8 +241,11 @@ func main() {
 
 	config := &tpmjwt.TPMConfig{
 		TPMDevice: rwc,
-		Key:       kk,
-		KeyID:     "Jp0no8s4Dp0kw58LyfIizoST/cBki1/KNqBxDKxC5sQ=",
+		NamedHandle: tpm2.NamedHandle{
+			Handle: cCreateGCEAK.ObjectHandle,
+			Name:   cCreateGCEAK.Name,
+		},
+		KeyID: hex.EncodeToString(cCreateGCEAK.Name.Buffer),
 	}
 
 	keyctx, err := tpmjwt.NewTPMContext(ctx, config)
@@ -173,13 +284,13 @@ func main() {
 
 	block, _ := pem.Decode(rc)
 
-	c, err := x509.ParseCertificate(block.Bytes)
+	cr, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	pk := c.PublicKey
+	pk := cr.PublicKey
 
 	v, err := jwt.Parse(vtoken.Raw, func(token *jwt.Token) (interface{}, error) {
 		return pk, nil
@@ -191,4 +302,64 @@ func main() {
 		log.Println("     verified with exported PubicKey")
 	}
 
+}
+
+func nvReadEX(rwr transport.TPM, index tpmutil.Handle) ([]byte, error) {
+
+	readPubRsp, err := tpm2.NVReadPublic{
+		NVIndex: tpm2.TPMHandle(index),
+	}.Execute(rwr)
+	if err != nil {
+		return nil, err
+	}
+
+	c, err := readPubRsp.NVPublic.Contents()
+	if err != nil {
+		return nil, err
+	}
+
+	getCmd := tpm2.GetCapability{
+		Capability:    tpm2.TPMCapTPMProperties,
+		Property:      uint32(tpm2.TPMPTNVBufferMax),
+		PropertyCount: 1,
+	}
+	getRsp, err := getCmd.Execute(rwr)
+	if err != nil {
+		return nil, err
+	}
+
+	tp, err := getRsp.CapabilityData.Data.TPMProperties()
+	if err != nil {
+		return nil, err
+	}
+
+	blockSize := int(tp.TPMProperty[0].Value)
+
+	outBuff := make([]byte, 0, int(c.DataSize))
+	for len(outBuff) < int(c.DataSize) {
+		readSize := blockSize
+		if readSize > (int(c.DataSize) - len(outBuff)) {
+			readSize = int(c.DataSize) - len(outBuff)
+		}
+
+		readRsp, err := tpm2.NVRead{
+			AuthHandle: tpm2.AuthHandle{
+				Handle: tpm2.TPMRHOwner,
+				Name:   tpm2.HandleName(tpm2.TPMRHOwner),
+				Auth:   tpm2.HMAC(tpm2.TPMAlgSHA256, 16, tpm2.Auth([]byte{})),
+			},
+			NVIndex: tpm2.NamedHandle{
+				Handle: tpm2.TPMHandle(index),
+				Name:   readPubRsp.NVName,
+			},
+			Size:   uint16(readSize),
+			Offset: uint16(len(outBuff)),
+		}.Execute(rwr)
+		if err != nil {
+			return nil, err
+		}
+		data := readRsp.Data.Buffer
+		outBuff = append(outBuff, data...)
+	}
+	return outBuff, nil
 }
