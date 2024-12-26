@@ -223,13 +223,12 @@ func main() {
 	// *****************************************************
 
 	log.Printf("======= generate test signature with RSA key ========")
-	data := []byte("foo")
 
 	h, err := tpm2.Hash{
 		Hierarchy: tpm2.TPMRHEndorsement,
 		HashAlg:   tpm2.TPMAlgSHA256,
 		Data: tpm2.TPM2BMaxBuffer{
-			Buffer: data,
+			Buffer: []byte(*secret),
 		},
 	}.Execute(rwr)
 	if err != nil {
@@ -275,7 +274,7 @@ func main() {
 	log.Printf("signature: %s\n", base64.StdEncoding.EncodeToString(rsassa.Sig.Buffer))
 
 	akhsh := crypto.SHA256.New()
-	akhsh.Write(data)
+	akhsh.Write([]byte(*secret))
 	if err := rsa.VerifyPKCS1v15(rsaGCEAKPub, crypto.SHA256, akhsh.Sum(nil), rsassa.Sig.Buffer); err != nil {
 		log.Fatalf("Failed to verify signature: %v", err)
 	}

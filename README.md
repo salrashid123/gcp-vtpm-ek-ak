@@ -439,11 +439,8 @@ We're going to cross check the issued certificate with google roots.
 ```bash
 ## get the EK
 gcloud compute instances get-shielded-identity attestor --format=json --zone=us-central1-a | jq -r '.encryptionKey.ekCert' > ekcert.pem
-
 ## get the intermediate from the ek
 curl -s $(openssl x509 -in ekcert.pem -noout -text | grep -Po "((?<=CA Issuers - URI:)http://.*)$") | openssl x509 -inform DER -outform PEM -out ek_intermediate.pem
-
-## get the root from the intermediate
 curl -s $(openssl x509 -in ek_intermediate.pem -noout -text | grep -Po "((?<=CA Issuers - URI:)http://.*)$") | openssl x509 -inform DER -outform PEM -out ek_root.pem
 
 ### the following subordinate is for my project; your's will be different
@@ -465,6 +462,10 @@ openssl verify -verbose -CAfile ek_chain.pem  ekcert.pem
   ekcert.pem: OK
 
 ### AK
+
+gcloud compute instances get-shielded-identity instance-1 --format=json | jq -r '.signingKey.ekCert' > akcert.pem
+curl -s $(openssl x509 -in akcert.pem -noout -text | grep -Po "((?<=CA Issuers - URI:)http://.*)$") | openssl x509 -inform DER -outform PEM -out ak_intermediate.pem
+curl -s $(openssl x509 -in ak_intermediate.pem -noout -text | grep -Po "((?<=CA Issuers - URI:)http://.*)$") | openssl x509 -inform DER -outform PEM -out ak_root.pem
 
 #### again, the subordinate will be different for you
 # Issuer: C=US, ST=California, L=Mountain View, O=Google LLC, OU=Google Cloud, CN=EK/AK CA Root

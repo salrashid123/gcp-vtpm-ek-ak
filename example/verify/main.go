@@ -26,7 +26,7 @@ var (
 	intermediateCA = flag.String("intermediateCA", "../certs/ak_intermediate.pem", "intermediate CA")
 
 	signature  = flag.String("signature", "krLYr99i6qTlB+UZ1bQ0pJUPooWW7IQD7lQ+5Fp+pmEp47UnBMK+TZkeH7ATGeVrXYY4bsPix/+f8p1DoTXObcSQZVZNdEEsBofCKULkUKZ5doggtl17zNWzKnjl6jjIr7criEOLRNZXVQZR/AckBZQIWWZ7ZO8unaHkoOXWlF6CIUdOaYIm0nuPGRrwmL5G15CTAUGeudIwMJBb7qZt2WaTyPddeUOzN4KsEuRfYXQpeRUNfcTcNMPiZENj5fNEUybviOTb8XW05e2ZhdD4DFBVyzaZ9lK3VnYICDHfWngnipO3LMWC+aJjei1C2CVnuHvhEsNPxdFDQfh5NPQ53w", "base64 encoded signature")
-	dataSigned = flag.String("dataSigned", "foobar", "data that was signed")
+	dataSigned = flag.String("dataSigned", "meet me at...", "data that was signed")
 )
 
 func main() {
@@ -120,9 +120,11 @@ func main() {
 	aKdataToVerify := []byte(*dataSigned)
 
 	h := sha256.New()
-	h.Write(aKdataToVerify)
-
-	b, err := base64.RawStdEncoding.DecodeString(*signature)
+	_, err = h.Write(aKdataToVerify)
+	if err != nil {
+		log.Fatal(err)
+	}
+	b, err := base64.StdEncoding.DecodeString(*signature)
 	if err != nil {
 		log.Fatalf("Error decoding %v\n", err)
 	}
