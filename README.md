@@ -9,7 +9,153 @@ The `x509 cert` issued to each vm is unique but is signed by google.  The certif
 
 Meaning, you can assert _this `vm_id=1234`, running in `region=us-central1-a` in `project=abcd` must have signed this data_
 
-So how does this work:   Each VM's `Endorsement Key` (encryption) and `Attestation Key` (signing) is encoded into `x509` certificates issued by Google's [TPM Signing CA](http://privateca-content-62d71773-0000-21da-852e-f4f5e80d7778.storage.googleapis.com/032bf9d39db4fa06aade/ca.crt).  
+So how does this work:   Each VM's `Endorsement Key` (encryption) and `Attestation Key` (signing) is encoded into `x509` certificates issued by Google's private root CA and a per-project subordinate CA.  The subordinate CA is unique to your project but you can derive trust to the roots:
+
+Eg root CA:
+
+```bash
+$ cat ek_root.pem
+-----BEGIN CERTIFICATE-----
+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
+av16U4E=
+-----END CERTIFICATE-----
+
+$ openssl x509 -in ek_root.pem -text -noout
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number:
+            a6:5d:a4:f9:e3:28:f3:80:35:c3:a7:3d:4f:72:43:2b:df:15:dc
+        Signature Algorithm: sha256WithRSAEncryption
+        Issuer: C=US, ST=California, L=Mountain View, O=Google LLC, OU=Google Cloud, CN=EK/AK CA Root
+        Validity
+            Not Before: Jul  8 00:40:34 2022 GMT
+            Not After : Jul  8 05:57:23 2122 GMT
+        Subject: C=US, ST=California, L=Mountain View, O=Google LLC, OU=Google Cloud, CN=EK/AK CA Root
+        Subject Public Key Info:
+            Public Key Algorithm: rsaEncryption
+                Public-Key: (4096 bit)
+                Modulus:
+                    00:9d:25:f5:50:a8:c8:96:4b:4a:89:7c:2b:28:4d:
+                    a5:b4:bb:a4:19:ee:89:c1:3a:a6:da:dd:b7:10:16:
+                    21:1d:93:9c:bc:52:83:13:45:89:1e:dd:ae:da:1f:
+                    c4:8d:2b:b9:c7:a8:08:8a:6c:6b:d3:47:20:aa:f3:
+                    de:c3:3f:37:f1:3c:98:53:47:88:90:2e:c9:57:f7:
+                    a4:fa:66:0e:92:c9:65:0d:6a:7b:cc:87:92:91:92:
+                    b3:72:a3:de:ce:58:61:6b:44:79:c0:95:7f:33:6c:
+                    e0:cb:4a:bc:67:c0:f9:62:81:e3:d0:3a:36:88:bc:
+                    47:d4:75:1a:89:cb:20:de:b0:49:75:f7:90:fd:62:
+                    6d:19:f4:34:68:1d:aa:07:e0:45:ee:47:0b:79:0a:
+                    02:18:d9:ea:c7:13:f0:46:f5:48:69:5a:07:21:b3:
+                    13:95:a8:19:39:cd:6f:28:9f:93:2c:7d:a1:46:71:
+                    5d:52:6c:aa:fd:aa:eb:5d:56:dd:aa:5b:3f:17:20:
+                    7a:ff:33:e4:95:d0:51:ba:eb:43:b1:1b:3b:44:ad:
+                    2b:50:ec:29:1b:0a:2e:e0:fe:60:bc:63:ac:14:50:
+                    e1:47:88:37:95:87:a7:a1:b4:be:06:22:3a:9b:47:
+                    9b:a6:0a:67:14:1e:98:ef:e4:54:c2:d1:ce:c9:b5:
+                    01:81:fb:78:d3:85:7a:47:01:20:a4:63:4a:aa:64:
+                    e6:6e:2e:77:4e:2a:ba:6e:9f:d2:10:63:de:21:3f:
+                    3d:ef:83:bc:86:d5:84:b8:7d:22:d0:2e:9c:84:86:
+                    40:f0:3d:75:81:20:7c:0f:ea:5a:2a:fe:a5:4e:cb:
+                    57:7a:61:a4:b7:86:86:e9:65:f0:6f:f3:62:64:21:
+                    17:78:5e:83:46:ee:21:1e:f4:69:ab:f3:4f:c8:8b:
+                    01:0a:f1:54:c3:51:64:91:06:33:02:0d:fe:da:bc:
+                    62:24:f7:fb:71:19:21:c4:aa:ab:a1:80:1a:38:ae:
+                    57:0d:cd:22:c5:c2:df:e0:ae:48:91:90:e4:66:c3:
+                    a7:8f:4b:73:a5:56:3c:77:96:78:5b:f0:49:41:a0:
+                    c4:a5:ea:e6:bd:7e:3d:1b:28:62:02:ba:4b:88:61:
+                    79:c8:17:11:7e:5c:ed:1b:5a:e9:37:05:94:41:5b:
+                    d1:72:bd:7e:9c:b5:76:bf:3d:2d:e1:46:c5:40:69:
+                    74:3b:ca:c4:34:4b:32:6d:c5:41:e9:fc:ae:64:7f:
+                    3d:24:5e:11:c2:6c:6a:a6:d4:3f:fa:bb:3d:ce:e4:
+                    d1:17:c5:f4:c6:fa:01:f3:d9:7e:7a:a0:a5:82:50:
+                    f8:81:52:af:d1:23:45:25:b5:c0:f7:0b:d3:7c:e8:
+                    4c:fe:3b
+                Exponent: 65537 (0x10001)
+        X509v3 extensions:
+            X509v3 Key Usage: critical
+                Certificate Sign, CRL Sign
+            X509v3 Extended Key Usage: 
+                2.23.133.8.1
+            X509v3 Basic Constraints: critical
+                CA:TRUE
+            X509v3 Subject Key Identifier: 
+                49:E7:4A:5B:56:29:F5:9D:79:B7:A6:30:3C:03:B2:8F:E7:14:DD:4C
+            X509v3 Authority Key Identifier: 
+                49:E7:4A:5B:56:29:F5:9D:79:B7:A6:30:3C:03:B2:8F:E7:14:DD:4C
+    Signature Algorithm: sha256WithRSAEncryption
+    Signature Value:
+        95:f1:d1:bc:e0:77:08:9a:0b:4e:5d:58:1b:f0:2f:8c:6a:19:
+        92:93:4c:ca:9e:57:e6:37:b5:20:20:90:eb:c6:f6:f7:a1:27:
+        f6:12:14:95:c6:18:ff:e9:ee:10:f4:8f:52:30:c0:de:2c:f0:
+        27:c0:c0:7d:5e:11:12:0a:50:ce:aa:21:e9:78:51:dd:38:32:
+        7c:75:e3:27:a0:c2:ee:9b:b3:12:0b:73:17:5f:b0:1d:28:54:
+        a4:1a:1e:dc:72:ae:2f:85:a1:07:7a:ef:c2:4d:92:12:cb:9d:
+        06:ef:76:a3:d0:6e:06:37:03:27:f1:96:e4:64:6d:a4:3f:c7:
+        ef:51:c0:13:ca:c8:f6:32:78:d6:74:b4:16:f9:24:8d:a5:f4:
+        82:5b:27:b4:c5:54:5e:2c:1c:b5:af:06:23:44:0e:13:68:a3:
+        b0:90:70:93:8d:6e:40:6b:74:60:e8:f6:48:69:44:c0:d0:02:
+        e4:30:53:07:99:19:ef:ee:97:f7:11:84:eb:f7:3e:33:74:c0:
+        03:43:8d:a1:7d:7c:ac:d7:e2:7f:de:1c:0b:1f:e6:3d:83:ac:
+        f2:95:24:00:d4:40:43:86:93:44:1b:e9:06:ba:f2:19:3f:11:
+        d5:a8:53:06:43:1e:45:01:b7:b5:db:0b:1d:14:fc:7c:90:85:
+        50:03:5d:e5:62:d6:b2:2f:37:d3:4e:72:fd:6b:8c:cf:cf:e0:
+        14:a7:34:3c:bf:85:f8:cb:9b:0a:c2:75:38:33:d3:46:c7:07:
+        f7:74:25:4b:8c:c4:32:0e:61:0c:02:24:b3:e7:c3:a1:12:76:
+        42:24:4e:aa:8e:c6:02:a6:d3:73:b4:93:29:f1:9c:af:df:a9:
+        6b:ad:e7:6b:b7:f7:a3:2d:6c:64:f5:8f:77:10:7c:b7:1e:73:
+        de:58:21:88:f3:f7:92:d4:31:ff:22:bf:d4:5c:1f:d6:18:31:
+        24:71:72:ff:65:1c:68:6b:8e:5d:14:51:4c:fc:84:9e:9a:59:
+        a7:cd:8a:8a:0b:3d:68:f1:d6:b5:a5:66:db:f2:eb:5d:7d:9f:
+        bd:3f:62:33:f9:34:0a:8b:cd:02:3f:2b:ce:d1:f1:b1:41:28:
+        03:4c:49:9d:23:89:34:fa:5e:f4:f4:5d:8e:c4:e3:ef:fb:b7:
+        5e:ee:a1:40:b3:4d:89:d0:47:80:8d:c7:72:68:bb:d3:81:cc:
+        31:df:f7:c9:9e:36:e0:e3:ab:4b:7d:b2:96:97:94:d6:87:90:
+        1c:5a:cb:13:a8:58:5f:8f:ed:b4:c1:13:6e:61:12:20:a7:76:
+        ad:38:2c:b4:fa:2d:4a:f9:2e:07:94:e5:8d:b2:98:3d:1f:a5:
+        ab:b8:50:6a:fd:7a:53:81
+```
+
+The subordinate CA will ofcourse reference back to this cert:
+
+```text
+            X509v3 Authority Key Identifier: 
+                49:E7:4A:5B:56:29:F5:9D:79:B7:A6:30:3C:03:B2:8F:E7:14:DD:4C
+            Authority Information Access: 
+                CA Issuers - URI:http://privateca-content-62d71773-0000-21da-852e-f4f5e80d7778.storage.googleapis.com/032bf9d39db4fa06aade/ca.crt
+```
+
 
 These x509 certificates are embedded that VMs in non-volatile memory and is also surfaced via GCE compute API API (see   [Retrieving endorsement keys](https://cloud.google.com/compute/shielded-vm/docs/retrieving-endorsement-key).
 
@@ -287,10 +433,21 @@ E41OGvMd351aImPMMc9R7z07nmRuBVpX7/6bwnMs9nuNZBdDPlmub5+/dCRyYkyu
 
 #### Verify EK Certificate with Roots
 
-We're going to cross check the issued certificate with google roots
+We're going to cross check the issued certificate with google roots.
 
 
 ```bash
+## get the EK
+gcloud compute instances get-shielded-identity attestor --format=json --zone=us-central1-a | jq -r '.encryptionKey.ekCert' > ekcert.pem
+
+## get the intermediate from the ek
+curl -s $(openssl x509 -in ekcert.pem -noout -text | grep -Po "((?<=CA Issuers - URI:)http://.*)$") | openssl x509 -inform DER -outform PEM -out ek_intermediate.pem
+
+## get the root from the intermediate
+curl -s $(openssl x509 -in ek_intermediate.pem -noout -text | grep -Po "((?<=CA Issuers - URI:)http://.*)$") | openssl x509 -inform DER -outform PEM -out ek_root.pem
+
+### the following subordinate is for my project; your's will be different
+
 ### EK 
 ## Issuer: C=US, ST=California, L=Mountain View, O=Google LLC, OU=Google Cloud, CN=EK/AK CA Root
 wget http://privateca-content-62d71773-0000-21da-852e-f4f5e80d7778.storage.googleapis.com/032bf9d39db4fa06aade/ca.crt -O ek_root.crt 
@@ -308,6 +465,8 @@ openssl verify -verbose -CAfile ek_chain.pem  ekcert.pem
   ekcert.pem: OK
 
 ### AK
+
+#### again, the subordinate will be different for you
 # Issuer: C=US, ST=California, L=Mountain View, O=Google LLC, OU=Google Cloud, CN=EK/AK CA Root
 wget http://privateca-content-62d71773-0000-21da-852e-f4f5e80d7778.storage.googleapis.com/032bf9d39db4fa06aade/ca.crt -O ak_root.crt 
 
