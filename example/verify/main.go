@@ -12,7 +12,7 @@ import (
 	"log"
 	"os"
 
-	certparser "github.com/salrashid123/gcp-tpm/parser"
+	certparser "github.com/salrashid123/gcp-vtpm-ek-ak/parser"
 )
 
 var (

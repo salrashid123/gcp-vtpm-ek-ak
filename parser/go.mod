@@ -1,4 +1,4 @@
-module github.com/salrashid123/gcp-tpm/parser
+module github.com/salrashid123/gcp-vtpm-ek-ak/parser
 
 go 1.19
 
